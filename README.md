@@ -812,7 +812,7 @@ A code-quality review was performed against the SonarQube rule set. The followin
 | SonarQube Rule | Severity | File(s) Affected | Description | Fix Applied |
 |---|---|---|---|---|
 | **java:S6204** — Use `Stream.toList()` | Minor | `PetServiceImpl.java`, `GlobalExceptionHandler.java`, `MongoPetPersistenceAdapter.java` | `collect(Collectors.toList())` should be replaced with `Stream.toList()` (available since Java 16). | Replaced all occurrences with `.toList()` and removed unused `Collectors` imports. |
-| **java:S2676** — `Math.abs` on hash code | Critical | `MongoPetPersistenceAdapter.java` | `Math.abs` applied to `hashCode()` can return a negative value when the hash equals `Integer.MIN_VALUE`. | Replaced `Math.abs((long) id.hashCode())` with `(long) (id.hashCode() & 0x7fffffff)` to guarantee a non-negative result. |
+| **java:S2676** — `Math.abs` on hash code | Critical | `MongoPetPersistenceAdapter.java` | `Math.abs` applied to `hashCode()` can return a negative value when the hash equals `Integer.MIN_VALUE`. | Replaced `Math.abs((long) document.getId().hashCode())` with `(long) (document.getId().hashCode() & 0x7fffffff)` to guarantee a non-negative result. |
 | **java:S1166** — Exception handlers should preserve the original exception | Major | `MongoPetPersistenceAdapter.java`, `GlobalExceptionHandler.java` | Caught exceptions were silently swallowed without logging. | Added SLF4J `Logger` instances; the `NumberFormatException` in `MongoPetPersistenceAdapter.toDomain()` is now logged at `WARN` level, and the generic `Exception` in `GlobalExceptionHandler.handleGenericException()` is logged at `ERROR` level, both preserving the full stack trace. |
 
 ### Files Changed
