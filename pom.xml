@@ -44,6 +44,19 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!--
+            MongoDB adapter support.
+            This dependency is optional: it is needed only when running with the 'mongo' profile.
+            To activate the MongoDB persistence adapter:
+              1. Ensure this dependency is present (remove the <optional> tag if preferred).
+              2. Start with: java -jar pet-manager.jar -\-spring.profiles.active=mongo
+            See application-mongo.yml for the required connection configuration.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

@@ -1,6 +1,7 @@
 package com.petmanager.repository;
 
 import com.petmanager.entity.Pet;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -8,10 +9,12 @@ import java.util.Optional;
 
 /**
  * JPA adapter that implements the PetPersistencePort using Spring Data JPA.
- * To switch to a different database (e.g., MongoDB), create a new adapter
- * implementing PetPersistencePort and register it as the primary bean.
+ * Active for all Spring profiles except "mongo".
+ * To switch to MongoDB, activate the "mongo" profile — this adapter will be
+ * disabled automatically and {@link MongoPetPersistenceAdapter} will be used instead.
  */
 @Repository
+@Profile("!mongo")
 public class JpaPetPersistenceAdapter implements PetPersistencePort {
 
     private final JpaPetRepository jpaPetRepository;

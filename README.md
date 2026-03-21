@@ -1,6 +1,6 @@
 # Pet Management REST API
 
-A production-ready Spring Boot REST application for managing pets, built with a layered architecture and a port/adapter persistence abstraction designed for future database migration.
+A production-ready Spring Boot REST application for managing pets. Built with a strict layered architecture and a port/adapter persistence abstraction that isolates the business logic from the persistence technology, making a future switch from a relational database to MongoDB (or any other store) a matter of activating a Spring profile.
 
 ## Table of Contents
 
@@ -13,45 +13,85 @@ A production-ready Spring Boot REST application for managing pets, built with a 
 7. [Testing with Postman and curl](#testing-with-postman-and-curl)
 8. [Security Configuration](#security-configuration)
 9. [H2 Console](#h2-console)
-10. [Switching from H2 to PostgreSQL](#switching-from-h2-to-postgresql)
-11. [Running Tests and Coverage Reports](#running-tests-and-coverage-reports)
+10. [Switching Databases](#switching-databases)
+    - [From H2 to PostgreSQL](#from-h2-to-postgresql)
+    - [From JPA to MongoDB](#from-jpa-to-mongodb)
+11. [Deployment in Various Environments](#deployment-in-various-environments)
+12. [Running Tests and Coverage Reports](#running-tests-and-coverage-reports)
 
 ---
 
 ## Project Overview
 
-This application exposes a REST API to perform CRUD operations on a `Pet` entity. It is built as a senior-grade, production-ready project following clean code principles, layered architecture, and interface-driven persistence abstraction.
+This application exposes a REST API to perform CRUD operations on a `Pet` entity. It follows clean code principles, a layered architecture, and an interface-driven persistence abstraction: the service layer depends exclusively on a `PetPersistencePort` interface, never on a concrete database implementation. Concrete adapters (JPA, MongoDB) implement that interface and are activated via Spring profiles.
 
 ---
 
 ## Architecture
 
-The application follows a three-layer architecture:
-
-```
-Controller → Service → Repository (Port/Adapter)
-```
-
 ### Layered Architecture
 
-| Layer | Responsibility |
-|---|---|
-| **Controller** | Accepts HTTP requests, delegates to service, returns HTTP responses |
-| **Service** | Contains business logic; operates on domain entities via the persistence port |
-| **Repository** | Persistence abstraction (port) and its JPA implementation (adapter) |
+```
+┌─────────────────────────────────────────────────────┐
+│  HTTP Client (Postman, curl, browser)               │
+└────────────────────┬────────────────────────────────┘
+                     │  HTTP
+┌────────────────────▼────────────────────────────────┐
+│  PetController   (@RestController)                  │
+│  /api/v1/pets                                       │
+│  Validates input (Bean Validation)                  │
+│  Maps DTOs ↔ domain via PetMapper                   │
+└────────────────────┬────────────────────────────────┘
+                     │  PetService interface
+┌────────────────────▼────────────────────────────────┐
+│  PetServiceImpl   (@Service)                        │
+│  Business logic (create, find, update, delete)      │
+│  Owns transaction boundaries (@Transactional)       │
+│  Depends only on PetPersistencePort (port)          │
+└────────────────────┬────────────────────────────────┘
+                     │  PetPersistencePort interface
+        ┌────────────┴───────────────┐
+        │                            │
+┌───────▼──────────┐       ┌─────────▼────────────┐
+│ JpaPetPersistence│       │ MongoPetPersistence   │
+│ Adapter          │       │ Adapter               │
+│ @Profile("!mongo")       │ @Profile("mongo")     │
+│ Spring Data JPA  │       │ Spring Data MongoDB   │
+└───────┬──────────┘       └─────────┬─────────────┘
+        │                            │
+┌───────▼──────────┐       ┌─────────▼─────────────┐
+│ JpaPetRepository │       │ MongoPetRepository    │
+│ (JpaRepository)  │       │ (MongoRepository)     │
+│ H2 / PostgreSQL  │       │ MongoDB               │
+└──────────────────┘       └───────────────────────┘
+```
 
 ### Port/Adapter Pattern for Persistence
 
-The repository layer uses a port/adapter pattern to decouple business logic from the persistence technology:
+The repository layer is structured around the hexagonal architecture (port/adapter) pattern:
 
-- `PetPersistencePort` — interface defining the contract used by the service layer
-- `JpaPetPersistenceAdapter` — JPA implementation of the port, backed by Spring Data JPA
-- `JpaPetRepository` — internal Spring Data JPA repository used by the adapter
+| Component | Role |
+|---|---|
+| `PetPersistencePort` | Port — interface defining the contract consumed by the service layer |
+| `JpaPetPersistenceAdapter` | Adapter — JPA implementation, active on all profiles except `mongo` |
+| `MongoPetPersistenceAdapter` | Adapter — MongoDB implementation, active on the `mongo` profile |
+| `JpaPetRepository` | Internal Spring Data JPA repository used by the JPA adapter |
+| `MongoPetRepository` | Internal Spring Data MongoDB repository used by the Mongo adapter |
+| `PetDocument` | MongoDB document class, used exclusively inside the Mongo adapter |
 
-To switch from a relational database (H2/PostgreSQL) to a non-relational one (e.g., MongoDB), you only need to:
-1. Create a new adapter implementing `PetPersistencePort` (e.g., `MongoPetPersistenceAdapter`)
-2. Register it as the active Spring bean
-3. No changes to the service layer are required
+The service layer (`PetServiceImpl`) is completely unaware of which adapter is active. It always calls `PetPersistencePort` methods. The Spring container injects the correct adapter at startup depending on the active profile.
+
+### Request/Response Flow
+
+```
+HTTP POST /api/v1/pets
+  → PetController receives PetRequest, validates it (@Valid)
+  → PetController calls PetService.create(PetRequest)
+  → PetServiceImpl calls PetMapper.toEntity(PetRequest) → Pet
+  → PetServiceImpl calls PetPersistencePort.save(Pet) → Pet (saved)
+  → PetServiceImpl calls PetMapper.toResponse(Pet) → PetResponse
+  → PetController returns 201 Created with PetResponse body
+```
 
 ---
 
@@ -62,14 +102,17 @@ To switch from a relational database (H2/PostgreSQL) to a non-relational one (e.
 | Java | 17 | Programming language |
 | Spring Boot | 3.2.x | Application framework |
 | Spring Web | 3.2.x | REST API |
-| Spring Data JPA | 3.2.x | ORM and data access |
+| Spring Data JPA | 3.2.x | ORM and relational data access |
+| Spring Data MongoDB | 3.2.x | MongoDB data access (optional, activated via `mongo` profile) |
 | Spring Security | 3.2.x | Authentication and authorization |
 | Spring Validation | 3.2.x | Bean validation |
-| H2 | Runtime | In-memory database (development) |
+| H2 | Runtime | In-memory database (dev profile) |
+| PostgreSQL | — | Production relational database (prod profile) |
+| MongoDB | — | NoSQL alternative (mongo profile) |
 | JUnit 5 | 5.x | Testing framework |
 | Mockito | 5.x | Mocking framework |
 | AssertJ | 3.x | Fluent assertions |
-| JaCoCo | 0.8.11 | Code coverage |
+| JaCoCo | 0.8.11 | Code coverage reporting |
 | Maven | 3.9+ | Build tool |
 
 ---
@@ -81,45 +124,51 @@ src/
   main/
     java/com/petmanager/
       config/
-        SecurityConfig.java          # Spring Security configuration
+        SecurityConfig.java                # Spring Security filter chain, users
       controller/
-        PetController.java           # REST endpoints
+        PetController.java                 # REST endpoints for /api/v1/pets
+      document/
+        PetDocument.java                   # MongoDB @Document class (Mongo adapter only)
       dto/
-        PetRequest.java              # Incoming request DTO with validation
-        PetResponse.java             # Outgoing response DTO
-        ErrorResponse.java           # Error payload
-        ValidationErrorResponse.java # Validation error payload
+        PetRequest.java                    # Incoming request DTO with Bean Validation
+        PetResponse.java                   # Outgoing response DTO
+        ErrorResponse.java                 # Generic error payload
+        ValidationErrorResponse.java       # Validation error payload
       entity/
-        Pet.java                     # JPA entity
+        Pet.java                           # JPA @Entity / domain object
       exception/
-        PetNotFoundException.java    # Domain exception
-        GlobalExceptionHandler.java  # @RestControllerAdvice
+        PetNotFoundException.java          # Thrown when a pet is not found
+        GlobalExceptionHandler.java        # @RestControllerAdvice (404 / 400 / 500)
       mapper/
-        PetMapper.java               # Entity <-> DTO conversion
+        PetMapper.java                     # Converts between Pet entity and DTOs
       repository/
-        PetPersistencePort.java      # Port interface
-        JpaPetRepository.java        # Spring Data JPA repository
-        JpaPetPersistenceAdapter.java# JPA adapter implementing the port
+        PetPersistencePort.java            # Port interface (contract for all adapters)
+        JpaPetRepository.java              # Spring Data JPA repository (used by JPA adapter)
+        JpaPetPersistenceAdapter.java      # JPA adapter, active when profile != "mongo"
+        MongoPetRepository.java            # Spring Data MongoDB repository (used by Mongo adapter)
+        MongoPetPersistenceAdapter.java    # MongoDB adapter, active on "mongo" profile
       service/
-        PetService.java              # Service interface
-        PetServiceImpl.java          # Service implementation
+        PetService.java                    # Service interface
+        PetServiceImpl.java                # Service implementation (uses PetPersistencePort)
       PetManagerApplication.java
     resources/
-      application.yml                # Base configuration (activates dev profile)
-      application-dev.yml            # H2 dev profile
-      application-prod.yml           # PostgreSQL production profile template
+      application.yml                      # Base config (activates dev profile)
+      application-dev.yml                  # H2 in-memory, H2 console, debug logging
+      application-prod.yml                 # PostgreSQL, no console, production logging
+      application-mongo.yml                # MongoDB, disables JPA auto-configuration
   test/
     java/com/petmanager/
       controller/
-        PetControllerTest.java       # Integration tests (MockMvc)
+        PetControllerTest.java             # Integration tests (@WebMvcTest + MockMvc)
       exception/
-        PetNotFoundExceptionTest.java
+        PetNotFoundExceptionTest.java      # Unit test for exception message
       mapper/
-        PetMapperTest.java
+        PetMapperTest.java                 # Unit tests for DTO/entity mapping
       repository/
-        JpaPetPersistenceAdapterTest.java
+        JpaPetPersistenceAdapterTest.java  # Integration tests (@DataJpaTest with H2)
+        MongoPetPersistenceAdapterTest.java# Unit tests for MongoDB adapter (Mockito)
       service/
-        PetServiceImplTest.java      # Unit tests (Mockito)
+        PetServiceImplTest.java            # Unit tests for service layer (Mockito)
 ```
 
 ---
@@ -137,25 +186,19 @@ src/
 mvn clean package
 ```
 
-### Run (development profile with H2)
+### Run — development profile (H2 in-memory)
 
 ```bash
 mvn spring-boot:run
 ```
 
-Or run the packaged jar:
+Or using the packaged jar:
 
 ```bash
 java -jar target/pet-manager-1.0.0.jar
 ```
 
-The application will start on `http://localhost:8080` with the `dev` profile active.
-
-### Run with production profile
-
-```bash
-java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=prod
-```
+The application starts on `http://localhost:8080` with the `dev` profile active (H2 in-memory database).
 
 ---
 
@@ -204,12 +247,12 @@ http://localhost:8080/api/v1/pets
 
 ## Testing with Postman and curl
 
-### Credentials
+### Default Credentials
 
-| Username | Password | Roles |
+| Username | Password | Role |
 |---|---|---|
-| `user` | `user123` | USER |
-| `admin` | `admin123` | ADMIN |
+| `user` | `user123` | USER (read-only) |
+| `admin` | `admin123` | ADMIN (full access) |
 
 ### Create a pet
 
@@ -279,11 +322,7 @@ curl -X DELETE http://localhost:8080/api/v1/pets/1 \
 curl -X POST http://localhost:8080/api/v1/pets \
   -u admin:admin123 \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "",
-    "species": "Dog",
-    "age": -1
-  }'
+  -d '{"name": "", "species": "Dog", "age": -1}'
 ```
 
 **Response (400 Bad Request):**
@@ -299,11 +338,10 @@ curl -X POST http://localhost:8080/api/v1/pets \
 }
 ```
 
-### Not found error example
+### Not found example
 
 ```bash
-curl -X GET http://localhost:8080/api/v1/pets/999 \
-  -u user:user123
+curl -X GET http://localhost:8080/api/v1/pets/999 -u user:user123
 ```
 
 **Response (404 Not Found):**
@@ -319,7 +357,7 @@ curl -X GET http://localhost:8080/api/v1/pets/999 \
 
 ## Security Configuration
 
-Spring Security is configured in `SecurityConfig.java` with HTTP Basic authentication.
+Spring Security is configured in `SecurityConfig.java` with HTTP Basic authentication and stateless sessions (no server-side session state, appropriate for REST APIs).
 
 ### Access Rules
 
@@ -329,36 +367,36 @@ Spring Security is configured in `SecurityConfig.java` with HTTP Basic authentic
 | `POST /api/v1/pets/**` | ADMIN |
 | `PUT /api/v1/pets/**` | ADMIN |
 | `DELETE /api/v1/pets/**` | ADMIN |
-| `/h2-console/**` | Public (development only) |
+| `/h2-console/**` | Public (dev profile only) |
 
-### Default Users (in-memory)
+### Extending Security for Production
 
-| Username | Password | Role |
-|---|---|---|
-| `user` | `user123` | USER |
-| `admin` | `admin123` | ADMIN |
+The in-memory users are for development only. Replace `InMemoryUserDetailsManager` with a database-backed implementation:
 
-### Extending Security
+```java
+@Bean
+public UserDetailsService userDetailsService(final UserRepository userRepository,
+                                              final PasswordEncoder encoder) {
+    return username -> userRepository.findByUsername(username)
+            .map(user -> User.withUsername(user.getUsername())
+                    .password(user.getPassword())
+                    .roles(user.getRole())
+                    .build())
+            .orElseThrow(() -> new UsernameNotFoundException(username));
+}
+```
 
-For production use, replace `InMemoryUserDetailsManager` with a database-backed `UserDetailsService`:
-
-1. Create a `User` entity and repository
-2. Implement `UserDetailsService` to load users from the database
-3. Register it as a Spring bean; Spring Security will use it automatically
-
-CSRF protection is disabled for simplicity with REST clients. For browser-based clients, enable it in `SecurityConfig`.
+For production workloads, consider replacing HTTP Basic with JWT tokens by adding a `JwtAuthenticationFilter` before `UsernamePasswordAuthenticationFilter` in the security filter chain.
 
 ---
 
 ## H2 Console
 
-When running with the `dev` profile, the H2 in-memory database console is available at:
+When running with the `dev` profile, the H2 web console is available at:
 
 ```
 http://localhost:8080/h2-console
 ```
-
-**Connection settings:**
 
 | Field | Value |
 |---|---|
@@ -368,9 +406,13 @@ http://localhost:8080/h2-console
 
 ---
 
-## Switching from H2 to PostgreSQL
+## Switching Databases
 
-### 1. Add PostgreSQL dependency to `pom.xml`
+### From H2 to PostgreSQL
+
+This is a configuration-only change; no code changes are needed.
+
+#### 1. Add the PostgreSQL driver to `pom.xml`
 
 ```xml
 <dependency>
@@ -380,7 +422,7 @@ http://localhost:8080/h2-console
 </dependency>
 ```
 
-You may also remove or scope the H2 dependency to `test`:
+Optionally, restrict H2 to the test scope:
 
 ```xml
 <dependency>
@@ -390,9 +432,7 @@ You may also remove or scope the H2 dependency to `test`:
 </dependency>
 ```
 
-### 2. Update `application-prod.yml`
-
-The file `src/main/resources/application-prod.yml` is already prepared as a template:
+#### 2. Configure `application-prod.yml` (already provided as a template)
 
 ```yaml
 spring:
@@ -405,14 +445,9 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
-    show-sql: false
 ```
 
-Set the environment variables `DB_USERNAME` and `DB_PASSWORD` before running.
-
-### 3. Create the database schema
-
-With `ddl-auto: validate`, Hibernate will validate the schema but not create it. Use a migration tool such as Flyway or Liquibase to manage the schema:
+#### 3. Create the database schema
 
 ```sql
 CREATE TABLE pets (
@@ -424,13 +459,311 @@ CREATE TABLE pets (
 );
 ```
 
-### 4. Run with the prod profile
+#### 4. Run with the prod profile
 
 ```bash
 export DB_USERNAME=youruser
 export DB_PASSWORD=yourpassword
 java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=prod
 ```
+
+---
+
+### From JPA to MongoDB
+
+The codebase already includes the complete MongoDB adapter. The swap is done by activating the `mongo` Spring profile — no service-layer or controller changes are required.
+
+#### How the swap works
+
+The service depends exclusively on the `PetPersistencePort` interface:
+
+```
+PetServiceImpl → PetPersistencePort (interface)
+                      ↑
+       ┌──────────────┴──────────────────┐
+       │                                 │
+JpaPetPersistenceAdapter         MongoPetPersistenceAdapter
+ @Profile("!mongo")                @Profile("mongo")
+ (active by default)               (active when mongo profile is set)
+```
+
+When you start with `--spring.profiles.active=mongo`, Spring activates `MongoPetPersistenceAdapter` and skips `JpaPetPersistenceAdapter`. The `PetServiceImpl` receives the MongoDB adapter injected through the same `PetPersistencePort` interface and operates without any modification.
+
+#### Step-by-step MongoDB migration
+
+**Step 1: Ensure the MongoDB dependency is active in `pom.xml`**
+
+The dependency is already declared as optional. Remove the `<optional>true</optional>` tag to make it a regular compile-time dependency:
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-mongodb</artifactId>
+</dependency>
+```
+
+If you no longer need JPA, you can also remove `spring-boot-starter-data-jpa` and `h2`.
+
+**Step 2: Configure `application-mongo.yml` (already provided)**
+
+```yaml
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/petdb}
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+```
+
+The `autoconfigure.exclude` entries prevent Spring Boot from trying to configure JPA/JDBC when MongoDB is in use.
+
+**Step 3: Start the application with the `mongo` profile**
+
+```bash
+export MONGODB_URI=mongodb://localhost:27017/petdb
+java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=mongo
+```
+
+For Docker:
+
+```bash
+docker run -e MONGODB_URI=mongodb://mongo:27017/petdb \
+           -e SPRING_PROFILES_ACTIVE=mongo \
+           -p 8080:8080 pet-manager:latest
+```
+
+**Step 4: Verify via the API**
+
+```bash
+curl -X POST http://localhost:8080/api/v1/pets \
+  -u admin:admin123 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Buddy", "species": "Dog", "age": 3}'
+```
+
+The response is identical regardless of the active persistence adapter. The service and controller are completely unchanged.
+
+#### Classes involved in the MongoDB adapter
+
+| Class | Package | Purpose |
+|---|---|---|
+| `PetDocument` | `com.petmanager.document` | MongoDB `@Document` representation of a Pet |
+| `MongoPetRepository` | `com.petmanager.repository` | Spring Data MongoDB repository interface |
+| `MongoPetPersistenceAdapter` | `com.petmanager.repository` | Implements `PetPersistencePort`, converts between `Pet` and `PetDocument` |
+
+The `PetDocument` class mirrors the `Pet` domain object but uses `String` for the id field (MongoDB ObjectId). The adapter converts transparently between `Long` domain IDs and MongoDB's `String` ObjectIds so the service layer is never exposed to the difference.
+
+---
+
+## Deployment in Various Environments
+
+### Environment Summary
+
+| Profile | Database | Use case | How to activate |
+|---|---|---|---|
+| `dev` | H2 in-memory | Local development | Default (no flag needed) |
+| `prod` | PostgreSQL | Production on-premise / VMs | `--spring.profiles.active=prod` |
+| `mongo` | MongoDB | Production with NoSQL | `--spring.profiles.active=mongo` |
+
+---
+
+### Local Development (H2)
+
+```bash
+mvn spring-boot:run
+# Application at http://localhost:8080
+# H2 console at http://localhost:8080/h2-console
+```
+
+---
+
+### Running with PostgreSQL (prod profile)
+
+```bash
+export DB_USERNAME=petuser
+export DB_PASSWORD=secret
+java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=prod
+```
+
+---
+
+### Running with MongoDB (mongo profile)
+
+```bash
+export MONGODB_URI=mongodb://localhost:27017/petdb
+java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=mongo
+```
+
+---
+
+### Docker
+
+#### Build the image
+
+Create a `Dockerfile` at the project root:
+
+```dockerfile
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY target/pet-manager-1.0.0.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+Build and run:
+
+```bash
+mvn clean package -DskipTests
+docker build -t pet-manager:latest .
+docker run -p 8080:8080 pet-manager:latest
+```
+
+---
+
+### Docker Compose — application + PostgreSQL
+
+Create a `docker-compose.yml` at the project root:
+
+```yaml
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: petdb
+      POSTGRES_USER: petuser
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petuser -d petdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: pet-manager:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_USERNAME: petuser
+      DB_PASSWORD: secret
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/petdb
+    ports:
+      - "8080:8080"
+```
+
+Start the stack:
+
+```bash
+docker compose up
+```
+
+---
+
+### Docker Compose — application + MongoDB
+
+```yaml
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: pet-manager:latest
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: mongo
+      MONGODB_URI: mongodb://mongo:27017/petdb
+    ports:
+      - "8080:8080"
+```
+
+---
+
+### Kubernetes
+
+A minimal Kubernetes deployment for the production (PostgreSQL) configuration:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pet-manager
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pet-manager
+  template:
+    metadata:
+      labels:
+        app: pet-manager
+    spec:
+      containers:
+        - name: pet-manager
+          image: pet-manager:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pet-manager-secrets
+                  key: db-username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pet-manager-secrets
+                  key: db-password
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pet-manager-svc
+spec:
+  selector:
+    app: pet-manager
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+```
+
+Create the Kubernetes secret:
+
+```bash
+kubectl create secret generic pet-manager-secrets \
+  --from-literal=db-username=petuser \
+  --from-literal=db-password=secret
+kubectl apply -f k8s-deployment.yml
+```
+
+To switch to MongoDB on Kubernetes, change `SPRING_PROFILES_ACTIVE` to `mongo` and replace the `DB_*` environment variables with `MONGODB_URI`.
 
 ---
 
@@ -442,7 +775,7 @@ java -jar target/pet-manager-1.0.0.jar --spring.profiles.active=prod
 mvn test
 ```
 
-### Run tests and generate JaCoCo coverage report
+### Run tests and enforce coverage threshold
 
 ```bash
 mvn verify
@@ -454,19 +787,16 @@ The HTML coverage report is generated at:
 target/site/jacoco/index.html
 ```
 
-Open it in a browser to view the detailed coverage breakdown.
-
-### Coverage threshold
-
-The build is configured to fail if line coverage drops below **90%** (excluding DTOs and the application entry point). This is enforced by the JaCoCo Maven plugin during the `verify` phase.
+The build fails if line coverage drops below **90%** (excluding DTOs and the application entry point).
 
 ### Test structure
 
 | Test class | Type | What it covers |
 |---|---|---|
 | `PetServiceImplTest` | Unit (Mockito) | Service layer business logic |
-| `PetControllerTest` | Integration (MockMvc) | Controller endpoints, security, validation |
-| `JpaPetPersistenceAdapterTest` | Integration (@DataJpaTest) | Repository adapter with H2 |
-| `PetMapperTest` | Unit | DTO/Entity mapping |
+| `PetControllerTest` | Integration (MockMvc) | REST endpoints, security rules, validation |
+| `JpaPetPersistenceAdapterTest` | Integration (@DataJpaTest) | JPA adapter with H2 |
+| `MongoPetPersistenceAdapterTest` | Unit (Mockito) | MongoDB adapter conversions and delegation |
+| `PetMapperTest` | Unit | DTO/entity mapping |
 | `PetNotFoundExceptionTest` | Unit | Exception message |
 
