@@ -18,6 +18,7 @@ A production-ready Spring Boot REST application for managing pets. Built with a 
     - [From JPA to MongoDB](#from-jpa-to-mongodb)
 11. [Deployment in Various Environments](#deployment-in-various-environments)
 12. [Running Tests and Coverage Reports](#running-tests-and-coverage-reports)
+13. [SonarQube Compliance Report](#sonarqube-compliance-report)
 
 ---
 
@@ -799,4 +800,32 @@ The build fails if line coverage drops below **90%** (excluding DTOs and the app
 | `MongoPetPersistenceAdapterTest` | Unit (Mockito) | MongoDB adapter conversions and delegation |
 | `PetMapperTest` | Unit | DTO/entity mapping |
 | `PetNotFoundExceptionTest` | Unit | Exception message |
+
+---
+
+## SonarQube Compliance Report
+
+A code-quality review was performed against the SonarQube rule set. The following issues were identified and resolved.
+
+### Issues Found and Fixed
+
+| SonarQube Rule | Severity | File(s) Affected | Description | Fix Applied |
+|---|---|---|---|---|
+| **java:S6204** — Use `Stream.toList()` | Minor | `PetServiceImpl.java`, `GlobalExceptionHandler.java`, `MongoPetPersistenceAdapter.java` | `collect(Collectors.toList())` should be replaced with `Stream.toList()` (available since Java 16). | Replaced all occurrences with `.toList()` and removed unused `Collectors` imports. |
+| **java:S2676** — `Math.abs` on hash code | Critical | `MongoPetPersistenceAdapter.java` | `Math.abs` applied to `hashCode()` can return a negative value when the hash equals `Integer.MIN_VALUE`. | Replaced `Math.abs((long) document.getId().hashCode())` with `(long) (document.getId().hashCode() & 0x7fffffff)` to guarantee a non-negative result. |
+| **java:S1166** — Exception handlers should preserve the original exception | Major | `MongoPetPersistenceAdapter.java`, `GlobalExceptionHandler.java` | Caught exceptions were silently swallowed without logging. | Added SLF4J `Logger` instances; the `NumberFormatException` in `MongoPetPersistenceAdapter.toDomain()` is now logged at `WARN` level, and the generic `Exception` in `GlobalExceptionHandler.handleGenericException()` is logged at `ERROR` level, both preserving the full stack trace. |
+
+### Files Changed
+
+| File | Changes |
+|---|---|
+| `PetServiceImpl.java` | Replaced `.collect(Collectors.toList())` → `.toList()`; removed unused `Collectors` import. |
+| `GlobalExceptionHandler.java` | Replaced `.collect(Collectors.toList())` → `.toList()`; removed unused `Collectors` import; added SLF4J logger; log unexpected exceptions at `ERROR` level. |
+| `MongoPetPersistenceAdapter.java` | Replaced `.collect(Collectors.toList())` → `.toList()`; removed unused `Collectors` import; added SLF4J logger; log `NumberFormatException` at `WARN` level; fixed `Math.abs` overflow with bitmask. |
+
+### Verification
+
+- **All 45 tests pass** — no regressions introduced.
+- **JaCoCo coverage threshold met** — line coverage remains above 90% (`mvn verify` succeeds).
+- **No new security vulnerabilities** — CodeQL scan returned 0 alerts.
 
