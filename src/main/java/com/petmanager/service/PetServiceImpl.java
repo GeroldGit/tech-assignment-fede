@@ -6,6 +6,7 @@ import com.petmanager.entity.Pet;
 import com.petmanager.exception.PetNotFoundException;
 import com.petmanager.mapper.PetMapper;
 import com.petmanager.repository.PetPersistencePort;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,15 +14,11 @@ import java.util.List;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class PetServiceImpl implements PetService {
 
     private final PetPersistencePort persistencePort;
     private final PetMapper petMapper;
-
-    public PetServiceImpl(final PetPersistencePort persistencePort, final PetMapper petMapper) {
-        this.persistencePort = persistencePort;
-        this.petMapper = petMapper;
-    }
 
     @Override
     public PetResponse create(final PetRequest request) {
