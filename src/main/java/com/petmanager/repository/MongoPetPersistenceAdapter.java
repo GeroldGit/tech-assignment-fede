@@ -2,8 +2,8 @@ package com.petmanager.repository;
 
 import com.petmanager.document.PetDocument;
 import com.petmanager.entity.Pet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -26,15 +26,11 @@ import java.util.Optional;
  */
 @Repository
 @Profile("mongo")
+@RequiredArgsConstructor
+@Slf4j
 public class MongoPetPersistenceAdapter implements PetPersistencePort {
 
-    private static final Logger logger = LoggerFactory.getLogger(MongoPetPersistenceAdapter.class);
-
     private final MongoPetRepository mongoPetRepository;
-
-    public MongoPetPersistenceAdapter(final MongoPetRepository mongoPetRepository) {
-        this.mongoPetRepository = mongoPetRepository;
-    }
 
     @Override
     public Pet save(final Pet pet) {
@@ -79,7 +75,7 @@ public class MongoPetPersistenceAdapter implements PetPersistencePort {
             try {
                 pet.setId(Long.parseLong(document.getId()));
             } catch (final NumberFormatException e) {
-                logger.warn("Non-numeric MongoDB id '{}', using hashCode as fallback", document.getId(), e);
+                log.warn("Non-numeric MongoDB id '{}', using hashCode as fallback", document.getId(), e);
                 pet.setId((long) (document.getId().hashCode() & 0x7fffffff));
             }
         }
