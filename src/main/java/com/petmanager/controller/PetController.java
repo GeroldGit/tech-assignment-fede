@@ -4,6 +4,7 @@ import com.petmanager.dto.PetRequest;
 import com.petmanager.dto.PetResponse;
 import com.petmanager.service.PetService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,13 +20,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/pets")
+@RequiredArgsConstructor
 public class PetController {
 
     private final PetService petService;
-
-    public PetController(final PetService petService) {
-        this.petService = petService;
-    }
 
     @PostMapping
     public ResponseEntity<PetResponse> create(@Valid @RequestBody final PetRequest request) {

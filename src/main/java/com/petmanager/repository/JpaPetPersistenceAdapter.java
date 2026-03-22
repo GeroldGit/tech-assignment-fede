@@ -1,6 +1,7 @@
 package com.petmanager.repository;
 
 import com.petmanager.entity.Pet;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -15,13 +16,10 @@ import java.util.Optional;
  */
 @Repository
 @Profile("!mongo")
+@RequiredArgsConstructor
 public class JpaPetPersistenceAdapter implements PetPersistencePort {
 
     private final JpaPetRepository jpaPetRepository;
-
-    public JpaPetPersistenceAdapter(final JpaPetRepository jpaPetRepository) {
-        this.jpaPetRepository = jpaPetRepository;
-    }
 
     @Override
     public Pet save(final Pet pet) {
