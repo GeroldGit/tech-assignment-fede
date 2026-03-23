@@ -59,6 +59,24 @@ extract_id() {
   echo "$RESPONSE_BODY" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1
 }
 
+print_db_state() {
+  local stage="$1"
+
+  request "GET" "$BASE_URL/api/v1/pets" "$USER_USER" "$USER_PASS"
+  if [[ "$RESPONSE_STATUS" != "200" ]]; then
+    echo "[WARN] Could not fetch DB state after $stage (HTTP $RESPONSE_STATUS)"
+    echo "Body: $RESPONSE_BODY"
+    return
+  fi
+
+  echo "DB snapshot after $stage:"
+  if command -v jq >/dev/null 2>&1; then
+    echo "$RESPONSE_BODY" | jq .
+  else
+    echo "$RESPONSE_BODY"
+  fi
+}
+
 print_step "Checking read access as USER"
 request "GET" "$BASE_URL/api/v1/pets" "$USER_USER" "$USER_PASS"
 assert_status "200" "GET /api/v1/pets as USER"
@@ -74,6 +92,7 @@ if [[ -z "$PET_ID" ]]; then
 fi
 
 echo "Created pet with id: $PET_ID"
+print_db_state "CREATE"
 
 print_step "Reading created pet as USER"
 request "GET" "$BASE_URL/api/v1/pets/$PET_ID" "$USER_USER" "$USER_PASS"
@@ -82,10 +101,12 @@ assert_status "200" "GET /api/v1/pets/{id} as USER"
 print_step "Updating pet as ADMIN"
 request "PUT" "$BASE_URL/api/v1/pets/$PET_ID" "$ADMIN_USER" "$ADMIN_PASS" '{"name":"Smoke Buddy Updated","species":"Dog","age":3,"ownerName":"Smoke Owner"}'
 assert_status "200" "PUT /api/v1/pets/{id} as ADMIN"
+print_db_state "UPDATE"
 
 print_step "Deleting pet as ADMIN"
 request "DELETE" "$BASE_URL/api/v1/pets/$PET_ID" "$ADMIN_USER" "$ADMIN_PASS"
 assert_status "204" "DELETE /api/v1/pets/{id} as ADMIN"
+print_db_state "DELETE"
 
 print_step "Verifying resource is gone"
 request "GET" "$BASE_URL/api/v1/pets/$PET_ID" "$USER_USER" "$USER_PASS"
