@@ -1,0 +1,64 @@
+@baseUrl = http://localhost:8080
+@adminAuth = Basic YWRtaW46YWRtaW4xMjM=
+@userAuth = Basic dXNlcjp1c2VyMTIz
+@petId = 1
+
+### Create pet (ADMIN)
+POST {{baseUrl}}/api/v1/pets
+Authorization: {{adminAuth}}
+Content-Type: application/json
+
+{
+  "name": "Buddy",
+  "species": "Dog",
+  "age": 3,
+  "ownerName": "John Doe"
+}
+
+### Get all pets (USER or ADMIN)
+GET {{baseUrl}}/api/v1/pets
+Authorization: {{userAuth}}
+
+### Get pet by id (USER or ADMIN)
+GET {{baseUrl}}/api/v1/pets/{{petId}}
+Authorization: {{userAuth}}
+
+### Update pet (ADMIN)
+PUT {{baseUrl}}/api/v1/pets/{{petId}}
+Authorization: {{adminAuth}}
+Content-Type: application/json
+
+{
+  "name": "Buddy Updated",
+  "species": "Dog",
+  "age": 4,
+  "ownerName": "John Doe"
+}
+
+### Delete pet (ADMIN)
+DELETE {{baseUrl}}/api/v1/pets/{{petId}}
+Authorization: {{adminAuth}}
+
+### Validation error sample (ADMIN)
+POST {{baseUrl}}/api/v1/pets
+Authorization: {{adminAuth}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "species": "",
+  "age": -1,
+  "ownerName": ""
+}
+
+### Forbidden sample: USER tries to create (should be 403)
+POST {{baseUrl}}/api/v1/pets
+Authorization: {{userAuth}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail",
+  "species": "Cat",
+  "age": 1,
+  "ownerName": "Reader User"
+}

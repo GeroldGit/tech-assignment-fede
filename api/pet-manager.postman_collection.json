@@ -1,0 +1,399 @@
+{
+  "info": {
+    "name": "Pet Manager API",
+    "_postman_id": "e8f4f6ee-8b1e-4d5f-b875-b5e95d6d2051",
+    "description": "Collection to quickly test Pet Manager CRUD APIs with Basic Auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Pet (ADMIN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "if (json && json.id) {",
+              "    pm.collectionVariables.set('petId', String(json.id));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Buddy\",\n  \"species\": \"Dog\",\n  \"age\": 3,\n  \"ownerName\": \"John Doe\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get All Pets (USER)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{userUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{userPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Pet By Id (USER)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{userUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{userPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets/{{petId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets",
+            "{{petId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Pet (ADMIN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Buddy Updated\",\n  \"species\": \"Dog\",\n  \"age\": 4,\n  \"ownerName\": \"John Doe\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets/{{petId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets",
+            "{{petId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Pet (ADMIN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "    pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets/{{petId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets",
+            "{{petId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Validation Error Sample (ADMIN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"species\": \"\",\n  \"age\": -1,\n  \"ownerName\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Forbidden Sample (USER Create)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 403', function () {",
+              "    pm.response.to.have.status(403);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{userUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{userPass}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Should Fail\",\n  \"species\": \"Cat\",\n  \"age\": 1,\n  \"ownerName\": \"Reader User\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pets"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminUser",
+      "value": "admin"
+    },
+    {
+      "key": "adminPass",
+      "value": "admin123"
+    },
+    {
+      "key": "userUser",
+      "value": "user"
+    },
+    {
+      "key": "userPass",
+      "value": "user123"
+    },
+    {
+      "key": "petId",
+      "value": "1"
+    }
+  ]
+}

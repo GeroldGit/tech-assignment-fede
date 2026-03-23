@@ -9,16 +9,17 @@ A production-ready Spring Boot REST application for managing pets. Built with a 
 3. [Technology Stack](#technology-stack)
 4. [Project Structure](#project-structure)
 5. [How to Build and Run](#how-to-build-and-run)
-6. [API Documentation](#api-documentation)
-7. [Testing with Postman and curl](#testing-with-postman-and-curl)
-8. [Security Configuration](#security-configuration)
-9. [H2 Console](#h2-console)
-10. [Switching Databases](#switching-databases)
+6. [Fast API Quickstart](#fast-api-quickstart)
+7. [API Documentation](#api-documentation)
+8. [Testing with Postman and curl](#testing-with-postman-and-curl)
+9. [Security Configuration](#security-configuration)
+10. [H2 Console](#h2-console)
+11. [Switching Databases](#switching-databases)
     - [From H2 to PostgreSQL](#from-h2-to-postgresql)
     - [From JPA to MongoDB](#from-jpa-to-mongodb)
-11. [Deployment in Various Environments](#deployment-in-various-environments)
-12. [Running Tests and Coverage Reports](#running-tests-and-coverage-reports)
-13. [SonarQube Compliance Report](#sonarqube-compliance-report)
+12. [Deployment in Various Environments](#deployment-in-various-environments)
+13. [Running Tests and Coverage Reports](#running-tests-and-coverage-reports)
+14. [SonarQube Compliance Report](#sonarqube-compliance-report)
 
 ---
 
@@ -200,6 +201,44 @@ java -jar target/pet-manager-1.0.0.jar
 ```
 
 The application starts on `http://localhost:8080` with the `dev` profile active (H2 in-memory database).
+
+---
+
+## Fast API Quickstart
+
+Use this when you want to verify the API end-to-end in 2-5 minutes.
+
+### Ready-made files
+
+- `docs/API_QUICKSTART.md` — step-by-step guide.
+- `scripts/api-smoke-test.sh` — automated smoke test (create/read/update/delete).
+- `api/pet-manager.http` — requests ready for VS Code REST Client.
+- `api/pet-manager.postman_collection.json` — importable Postman collection.
+
+### Fast path
+
+1. Start the app:
+
+```bash
+mvn spring-boot:run
+```
+
+2. In a second terminal, run the smoke test:
+
+```bash
+chmod +x scripts/api-smoke-test.sh
+./scripts/api-smoke-test.sh
+```
+
+3. For manual testing, open `api/pet-manager.http` and execute requests one by one.
+4. If you use Postman, import `api/pet-manager.postman_collection.json` and run the requests in sequence.
+
+If your shell still uses Java 11, set Java 17 before running Maven:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+```
 
 ---
 
